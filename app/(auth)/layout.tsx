@@ -31,7 +31,7 @@ export default function AuthLayout({
         {/* Mobile logo */}
         <Link
           href="/"
-          className="flex items-center gap-2 font-semibold text-lg mb-8 lg:hidden"
+          className="flex items-center gap-2 font-semibold text-lg mb-8 lg:hidden mt-8"
         >
           <GraduationCap className="h-6 w-6 text-primary" />
           LearnPath

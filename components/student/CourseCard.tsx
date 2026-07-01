@@ -72,10 +72,12 @@ export default function CourseCard({ course, enrolled, progress }: CourseCardPro
               <BarChart3 className="h-3.5 w-3.5" />
               {course.milestone_count || 0} milestones
             </span>
-            <span className="flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5" />
-              {formatDuration(totalMinutes)}
-            </span>
+            {totalMinutes > 0 && (
+              <span className="flex items-center gap-1">
+                <Clock className="h-3.5 w-3.5" />
+                {formatDuration(totalMinutes)}
+              </span>
+            )}
           </div>
           {typeof progress === "number" && (
             <span className="text-xs font-medium text-primary">
