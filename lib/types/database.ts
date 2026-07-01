@@ -61,6 +61,7 @@ export interface CourseWithStats extends Course {
   milestone_count?: number
   lesson_count?: number
   enrollment_count?: number
+  total_minutes?: number
 }
 
 export interface MilestoneWithLessons extends Milestone {

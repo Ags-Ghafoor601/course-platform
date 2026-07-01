@@ -19,7 +19,7 @@ interface CourseCardProps {
 
 export default function CourseCard({ course, enrolled, progress }: CourseCardProps) {
   const difficulty = difficultyConfig[course.difficulty]
-  const totalMinutes = (course.lesson_count || 0) * 20
+  const totalMinutes = course.total_minutes ?? 0
 
   return (
     <Link href={`/courses/${course.id}`}>

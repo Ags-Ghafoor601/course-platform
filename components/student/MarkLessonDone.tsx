@@ -43,14 +43,14 @@ export default function MarkLessonDone({
       return
     }
 
-    toast.success(nextLessonId ? "Lesson complete! Moving to next." : "Lesson complete! Course finished 🎉")
-    router.refresh()
-
     if (nextLessonId) {
-      setTimeout(() => router.push(`/learn/${courseId}/${nextLessonId}`), 600)
+      toast.success("Lesson complete! Moving to next.")
+      router.push(`/learn/${courseId}/${nextLessonId}`)
+    } else {
+      toast.success("Course complete! 🎉")
+      router.refresh()
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   return (

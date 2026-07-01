@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import CourseCard from "@/components/student/CourseCard"
 import type { Metadata } from "next"
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Dashboard",
 }
 
@@ -46,16 +46,24 @@ export default async function DashboardPage() {
 
       const milestoneIds = (milestones || []).map((m: any) => m.id)
 
-      const { count: lessonCount } = await supabase
+      // Fetch lesson IDs and durations together in one query
+      const { data: lessonRows } = await supabase
         .from("lessons")
-        .select("*", { count: "exact", head: true })
+        .select("id, duration_minutes")
         .in("milestone_id", milestoneIds.length > 0 ? milestoneIds : [""])
+
+      const lessonIds = (lessonRows || []).map((l: any) => l.id)
+      const lessonCount = lessonIds.length
+      const totalMinutes = (lessonRows || []).reduce(
+        (sum: number, l: any) => sum + (l.duration_minutes || 0),
+        0
+      )
 
       const { count: completedCount } = await supabase
         .from("lesson_progress")
         .select("*", { count: "exact", head: true })
         .eq("student_id", user.id)
-        .in("lesson_id", milestoneIds.length > 0 ? milestoneIds : [""])
+        .in("lesson_id", lessonIds.length > 0 ? lessonIds : [""])
 
       const progress =
         lessonCount && lessonCount > 0
@@ -65,7 +73,8 @@ export default async function DashboardPage() {
       return {
         ...course,
         milestone_count: milestoneCount || 0,
-        lesson_count: lessonCount || 0,
+        lesson_count: lessonCount,
+        total_minutes: totalMinutes,
         progress,
       }
     })

@@ -46,10 +46,29 @@ export default async function CoursesPage({
         .select("*", { count: "exact", head: true })
         .eq("course_id", course.id)
 
+      const { data: milestoneRows } = await supabase
+        .from("milestones")
+        .select("id")
+        .eq("course_id", course.id)
+
+      const milestoneIds = (milestoneRows || []).map((m) => m.id)
+
+      const { data: lessonRows } = await supabase
+        .from("lessons")
+        .select("id, duration_minutes")
+        .in("milestone_id", milestoneIds.length > 0 ? milestoneIds : [""])
+
+      const lessonCount = (lessonRows || []).length
+      const totalMinutes = (lessonRows || []).reduce(
+        (sum, l) => sum + (l.duration_minutes || 0),
+        0
+      )
+
       return {
         ...course,
         milestone_count: milestoneCount || 0,
-        lesson_count: 0,
+        lesson_count: lessonCount,
+        total_minutes: totalMinutes,
       }
     })
   )

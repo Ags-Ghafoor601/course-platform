@@ -1,17 +1,21 @@
 "use client"
 
-import MDEditor from "@uiw/react-markdown-preview"
+import MDPreview from "@uiw/react-markdown-preview"
 
 export default function LessonContent({ content }: { content: string }) {
   return (
-    <div className="prose prose-slate dark:prose-invert max-w-none">
-      <MDEditor
+    <div
+      data-color-mode="auto"
+      className="rounded-lg border border-border overflow-hidden"
+    >
+      <MDPreview
         source={content}
         style={{
           backgroundColor: "transparent",
-          color: "inherit",
+          padding: "1.5rem",
           fontFamily: "inherit",
         }}
+        wrapperElement={{ "data-color-mode": "auto" } as any}
       />
     </div>
   )

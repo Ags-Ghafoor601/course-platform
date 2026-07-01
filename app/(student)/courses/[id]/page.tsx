@@ -56,6 +56,7 @@ export default async function CourseDetailPage({
   }
 
   const allLessons = (milestones || []).flatMap((m) => m.lessons || [])
+  const firstIncompleteLesson = allLessons.find((l) => !completedLessonIds.has(l.id)) ?? allLessons[0]
   const totalLessons = allLessons.length
   const totalMinutes = allLessons.reduce((sum, l) => sum + (l.duration_minutes || 0), 0)
   const completedCount = allLessons.filter((l) => completedLessonIds.has(l.id)).length
@@ -109,9 +110,9 @@ export default async function CourseDetailPage({
                   </span>
                 </div>
               </div>
-              {allLessons[0] && (
+              {firstIncompleteLesson && (
                 <Button asChild>
-                  <a href={`/learn/${course.id}/${allLessons[0].id}`}>
+                  <a href={`/learn/${course.id}/${firstIncompleteLesson.id}`}>
                     {completedCount > 0 ? "Continue" : "Start learning"}
                   </a>
                 </Button>
