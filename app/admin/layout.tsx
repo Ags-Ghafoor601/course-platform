@@ -21,10 +21,10 @@ export default async function AdminLayout({
   if (profile?.role !== "admin") redirect("/dashboard")
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="min-h-screen bg-background">
       <AdminSidebar profile={profile} />
-      <div className="flex-1 flex flex-col min-w-0">
-        <main className="flex-1 p-6 lg:p-8 max-w-7xl w-full mx-auto">
+      <div className="lg:pl-64">
+        <main className="p-4 lg:p-8 max-w-7xl mx-auto">
           {children}
         </main>
       </div>

@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
@@ -9,6 +10,8 @@ import {
   Users,
   LogOut,
   ChevronRight,
+  Menu,
+  X,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
@@ -24,23 +27,26 @@ const navLinks = [
   { href: "/admin/students", label: "Students", icon: Users, exact: false },
 ]
 
-export default function AdminSidebar({ profile }: { profile: Profile | null }) {
-  const pathname = usePathname()
-  const router = useRouter()
-
-  async function handleSignOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    toast.success("Signed out")
-    router.push("/")
-    router.refresh()
-  }
-
+function SidebarContent({
+  profile,
+  pathname,
+  onNavigate,
+  onSignOut,
+}: {
+  profile: Profile | null
+  pathname: string
+  onNavigate?: () => void
+  onSignOut: () => void
+}) {
   return (
-    <aside className="w-64 flex-shrink-0 border-r border-border bg-card flex flex-col">
+    <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="h-16 flex items-center px-6 border-b border-border">
-        <Link href="/admin" className="flex items-center gap-2 font-semibold text-lg">
+      <div className="h-16 flex items-center px-6 border-b border-border flex-shrink-0">
+        <Link
+          href="/admin"
+          onClick={onNavigate}
+          className="flex items-center gap-2 font-semibold text-lg"
+        >
           <GraduationCap className="h-6 w-6 text-primary" />
           <span>LearnPath</span>
         </Link>
@@ -50,13 +56,16 @@ export default function AdminSidebar({ profile }: { profile: Profile | null }) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navLinks.map(({ href, label, icon: Icon, exact }) => {
-          const isActive = exact ? pathname === href : pathname.startsWith(href)
+          const isActive = exact
+            ? pathname === href
+            : pathname.startsWith(href) && (exact || href !== "/admin" || pathname === "/admin")
           return (
             <Link
               key={href}
               href={href}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group",
                 isActive
@@ -73,9 +82,9 @@ export default function AdminSidebar({ profile }: { profile: Profile | null }) {
       </nav>
 
       {/* User */}
-      <div className="p-4 border-t border-border space-y-3">
+      <div className="p-4 border-t border-border space-y-3 flex-shrink-0">
         <div className="flex items-center gap-3 px-1">
-          <Avatar className="h-8 w-8">
+          <Avatar className="h-8 w-8 flex-shrink-0">
             <AvatarFallback className="bg-primary text-primary-foreground text-xs">
               {profile?.full_name ? getInitials(profile.full_name) : "A"}
             </AvatarFallback>
@@ -90,13 +99,91 @@ export default function AdminSidebar({ profile }: { profile: Profile | null }) {
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start text-muted-foreground hover:text-destructive"
-          onClick={handleSignOut}
+          className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+          onClick={onSignOut}
         >
           <LogOut className="h-4 w-4 mr-2" />
           Sign out
         </Button>
       </div>
-    </aside>
+    </div>
+  )
+}
+
+export default function AdminSidebar({ profile }: { profile: Profile | null }) {
+  const pathname = usePathname()
+  const router = useRouter()
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  async function handleSignOut() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    toast.success("Signed out")
+    router.push("/")
+    router.refresh()
+  }
+
+  return (
+    <>
+      {/* Mobile topbar */}
+      <div className="lg:hidden flex items-center justify-between h-14 px-4 border-b border-border bg-card sticky top-0 z-40">
+        <Link href="/admin" className="flex items-center gap-2 font-semibold">
+          <GraduationCap className="h-5 w-5 text-primary" />
+          <span>LearnPath</span>
+          <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+            Admin
+          </span>
+        </Link>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open menu"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+      </div>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile drawer */}
+      <div
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 w-72 bg-card border-r border-border transform transition-transform duration-300 ease-in-out lg:hidden",
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        <div className="absolute top-3 right-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setMobileOpen(false)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <SidebarContent
+          profile={profile}
+          pathname={pathname}
+          onNavigate={() => setMobileOpen(false)}
+          onSignOut={handleSignOut}
+        />
+      </div>
+
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex flex-col fixed inset-y-0 left-0 w-64 border-r border-border bg-card z-30">
+        <SidebarContent
+          profile={profile}
+          pathname={pathname}
+          onSignOut={handleSignOut}
+        />
+      </aside>
+    </>
   )
 }
