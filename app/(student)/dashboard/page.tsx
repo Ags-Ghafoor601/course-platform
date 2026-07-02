@@ -36,60 +36,90 @@ export default async function DashboardPage() {
     .eq("id", user.id)
     .single()
 
+  // Query 1: enrollments + courses in one shot
   const { data: enrollments } = await supabase
     .from("enrollments")
     .select(`*, course:courses (*)`)
     .eq("student_id", user.id)
 
-  const enrolledCourses = await Promise.all(
-    (enrollments || []).map(async (enrollment) => {
-      const course = enrollment.course as any
+  const courses = (enrollments || []).map((e) => e.course as any)
+  const courseIds = courses.map((c: any) => c.id)
 
-      const { count: milestoneCount } = await supabase
-        .from("milestones")
-        .select("*", { count: "exact", head: true })
-        .eq("course_id", course.id)
+  if (courseIds.length === 0) {
+    var enrolledCourses: any[] = []
+  } else {
+    // Query 2: all milestones for all enrolled courses at once
+    const { data: allMilestones } = await supabase
+      .from("milestones")
+      .select("id, course_id")
+      .in("course_id", courseIds)
 
-      const { data: milestones } = await supabase
-        .from("milestones")
-        .select("id")
-        .eq("course_id", course.id)
+    const milestoneIds = (allMilestones || []).map((m) => m.id)
 
-      const milestoneIds = (milestones || []).map((m: any) => m.id)
+    // Query 3: all lessons for all milestones at once
+    const { data: allLessons } = milestoneIds.length > 0
+      ? await supabase
+          .from("lessons")
+          .select("id, milestone_id, duration_minutes")
+          .in("milestone_id", milestoneIds)
+      : { data: [] }
 
-      const { data: lessonRows } = await supabase
-        .from("lessons")
-        .select("id, duration_minutes")
-        .in("milestone_id", milestoneIds.length > 0 ? milestoneIds : [""])
+    const lessonIds = (allLessons || []).map((l) => l.id)
 
-      const lessonIds = (lessonRows || []).map((l: any) => l.id)
-      const lessonCount = lessonIds.length
-      const totalMinutes = (lessonRows || []).reduce(
-        (sum: number, l: any) => sum + (l.duration_minutes || 0),
+    // Query 4: all progress for this student at once
+    const { data: allProgress } = lessonIds.length > 0
+      ? await supabase
+          .from("lesson_progress")
+          .select("lesson_id")
+          .eq("student_id", user.id)
+          .in("lesson_id", lessonIds)
+      : { data: [] }
+
+    const completedSet = new Set((allProgress || []).map((p) => p.lesson_id))
+
+    // Build lookup maps in JS — zero extra queries
+    const milestonesByCourse = new Map<string, string[]>()
+    for (const m of allMilestones || []) {
+      if (!milestonesByCourse.has(m.course_id)) {
+        milestonesByCourse.set(m.course_id, [])
+      }
+      milestonesByCourse.get(m.course_id)!.push(m.id)
+    }
+
+    const lessonsByMilestone = new Map<string, typeof allLessons>()
+    for (const l of allLessons || []) {
+      if (!lessonsByMilestone.has(l.milestone_id)) {
+        lessonsByMilestone.set(l.milestone_id, [])
+      }
+      lessonsByMilestone.get(l.milestone_id)!.push(l)
+    }
+
+    var enrolledCourses: any[] = courses.map((course: any) => {
+      const courseMilestoneIds = milestonesByCourse.get(course.id) || []
+      const courseLessons = courseMilestoneIds.flatMap(
+        (mid) => lessonsByMilestone.get(mid) || []
+      )
+      const lessonCount = courseLessons.length
+      const totalMinutes = courseLessons.reduce(
+        (sum, l) => sum + (l.duration_minutes || 0),
         0
       )
-
-      const { count: completedCount } = await supabase
-        .from("lesson_progress")
-        .select("*", { count: "exact", head: true })
-        .eq("student_id", user.id)
-        .in("lesson_id", lessonIds.length > 0 ? lessonIds : [""])
-
+      const completedCount = courseLessons.filter((l) =>
+        completedSet.has(l.id)
+      ).length
       const progress =
-        lessonCount > 0
-          ? Math.round(((completedCount || 0) / lessonCount) * 100)
-          : 0
+        lessonCount > 0 ? Math.round((completedCount / lessonCount) * 100) : 0
 
       return {
         ...course,
-        milestone_count: milestoneCount || 0,
+        milestone_count: courseMilestoneIds.length,
         lesson_count: lessonCount,
         total_minutes: totalMinutes,
-        completed_count: completedCount || 0,
+        completed_count: completedCount,
         progress,
       }
     })
-  )
+  }
 
   // Sort: in-progress first, not started second, completed last
   const sortedCourses = [...enrolledCourses].sort((a, b) => {

@@ -340,7 +340,7 @@ export default async function LandingPage() {
             <Button
               size="lg"
               variant="outline"
-              className="text-base px-8 border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
+              className="text-base px-8 bg-transparent border-white/60 text-white hover:bg-white/15 hover:border-white"
               asChild
             >
               <Link href="/courses">Browse courses</Link>

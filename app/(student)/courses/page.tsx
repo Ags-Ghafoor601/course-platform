@@ -39,39 +39,59 @@ export default async function CoursesPage({
 
   const enrolledIds = new Set((enrollments || []).map((e) => e.course_id))
 
-  const coursesWithStats = await Promise.all(
-    (courses || []).map(async (course) => {
-      const { count: milestoneCount } = await supabase
-        .from("milestones")
-        .select("*", { count: "exact", head: true })
-        .eq("course_id", course.id)
+  const courseList = courses || []
+  const allCourseIds = courseList.map((c) => c.id)
 
-      const { data: milestoneRows } = await supabase
-        .from("milestones")
-        .select("id")
-        .eq("course_id", course.id)
+  let coursesWithStats: any[] = []
 
-      const milestoneIds = (milestoneRows || []).map((m) => m.id)
+  if (allCourseIds.length > 0) {
+    // Batch query 1: all milestones for all courses
+    const { data: allMilestones } = await supabase
+      .from("milestones")
+      .select("id, course_id")
+      .in("course_id", allCourseIds)
 
-      const { data: lessonRows } = await supabase
-        .from("lessons")
-        .select("id, duration_minutes")
-        .in("milestone_id", milestoneIds.length > 0 ? milestoneIds : [""])
+    const allMilestoneIds = (allMilestones || []).map((m) => m.id)
 
-      const lessonCount = (lessonRows || []).length
-      const totalMinutes = (lessonRows || []).reduce(
-        (sum, l) => sum + (l.duration_minutes || 0),
-        0
-      )
+    // Batch query 2: all lessons for all milestones
+    const { data: allLessons } = allMilestoneIds.length > 0
+      ? await supabase
+          .from("lessons")
+          .select("id, milestone_id, duration_minutes")
+          .in("milestone_id", allMilestoneIds)
+      : { data: [] }
 
-      return {
-        ...course,
-        milestone_count: milestoneCount || 0,
-        lesson_count: lessonCount,
-        total_minutes: totalMinutes,
-      }
-    })
-  )
+    // Build maps in JS
+    const milestonesByCourse = new Map<string, number>()
+    const milestoneIdsByCourse = new Map<string, string[]>()
+    for (const m of allMilestones || []) {
+      milestonesByCourse.set(m.course_id, (milestonesByCourse.get(m.course_id) || 0) + 1)
+      if (!milestoneIdsByCourse.has(m.course_id)) milestoneIdsByCourse.set(m.course_id, [])
+      milestoneIdsByCourse.get(m.course_id)!.push(m.id)
+    }
+
+    const lessonsByCourse = new Map<string, { count: number; minutes: number }>()
+    const milestoneToCourseLookup = new Map<string, string>()
+    for (const m of allMilestones || []) {
+      milestoneToCourseLookup.set(m.id, m.course_id)
+    }
+    for (const l of allLessons || []) {
+      const courseId = milestoneToCourseLookup.get(l.milestone_id)
+      if (!courseId) continue
+      const existing = lessonsByCourse.get(courseId) || { count: 0, minutes: 0 }
+      lessonsByCourse.set(courseId, {
+        count: existing.count + 1,
+        minutes: existing.minutes + (l.duration_minutes || 0),
+      })
+    }
+
+    coursesWithStats = courseList.map((course) => ({
+      ...course,
+      milestone_count: milestonesByCourse.get(course.id) || 0,
+      lesson_count: lessonsByCourse.get(course.id)?.count || 0,
+      total_minutes: lessonsByCourse.get(course.id)?.minutes || 0,
+    }))
+  }
 
   const { data: allCourses } = await supabase
     .from("courses")
